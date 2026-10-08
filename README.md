@@ -116,9 +116,9 @@ Use the output of your config file or go through the manual process of VM creati
 
 Now start each VM and configure the hostname and static IP address.
 
-If you wonder whether we could use cloud images or templates, yes, we could. Or we could set up one instance and clone it. But those solutions are more confusing, and for 3 VMs they are not even quicker to set up.
+If you wonder whether we could use cloud images or templates, yes, we could. Or we could set up one instance and clone it. But those solutions are more confusing, and for 3 VMs they are not even [...]
 
-For cloned images, you would need to remove machine IDs, re-provision SSH keys, and more. Installing each instance might not look like the most efficient approach, but it really doesn't take longer than other approaches.
+For cloned images, you would need to remove machine IDs, re-provision SSH keys, and more. Installing each instance might not look like the most efficient approach, but it really doesn't take long[...]
 
 Now, still in Proxmox, log on to each VM console using the user/pass you've configured and run:
 
@@ -150,7 +150,7 @@ Useful tmux commands:
 - `^b + x` — close the current session (a warning will ask if you are sure)
 - `^d` — close the current tmux pane without warning
 
-You can run `tmux`, then `^b + "` to split the screen horizontally, then do it again so you have 3 sections. SSH to worker 2 in the bottom window, then run `^b + up arrow` to move to the window above, SSH to worker 1, and again up to SSH to the master.
+You can run `tmux`, then `^b + "` to split the screen horizontally, then do it again so you have 3 sections. SSH to worker 2 in the bottom window, then run `^b + up arrow` to move to the window a[...]
 
 Now `^b + :` will open command mode, where you can type `setw synchronize-panes` to run the same command in multiple panes.
 
@@ -202,7 +202,7 @@ Verify the file:
 cat /etc/modules-load.d/k8s.conf
 ```
 
-When the Linux system boots, it reads all files in that directory and automatically loads the listed modules. This ensures the overlay (for containers) and `br_netfilter` (for bridge networking) are always present even after reboots.
+When the Linux system boots, it reads all files in that directory and automatically loads the listed modules. This ensures the overlay (for containers) and `br_netfilter` (for bridge networking) [...]
 
 Load these modules into memory immediately without rebooting:
 
@@ -327,9 +327,55 @@ sudo apt-mark hold kubelet kubeadm kubectl
 - `kubeadm` = installer
 - `kubectl` = remote control
 
-The `hold` command locks the current version of these components. This is advisable because otherwise a standard `apt update && apt upgrade` could accidentally update them to a version incompatible with the current cluster state.
+The `hold` command locks the current version of these components. This is advisable because otherwise a standard `apt update && apt upgrade` could accidentally update them to a version incompatib[...]
 
 ## Initialize the cluster
+
+### Quick command map: which commands run where?
+
+Run the following commands on every VM before the cluster is initialized:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo reboot
+sudo apt install qemu-guest-agent -y
+sudo swapoff -a
+sudo nano /etc/fstab
+sudo modprobe overlay
+sudo modprobe br_netfilter
+sudo sysctl --system
+sudo apt install containerd -y
+sudo mkdir -p /etc/containerd
+containerd config default | sudo tee /etc/containerd/config.toml > /dev/null
+sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
+sudo systemctl restart containerd
+sudo systemctl enable containerd
+sudo apt update && sudo apt install -y apt-transport-https ca-certificates curl gpg
+sudo mkdir -p -m 755 /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+sudo apt update
+sudo apt install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
+```
+
+Run the following commands only on the master node:
+
+```bash
+sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+```
+
+Run the following command only on each worker node after the master generates the join token:
+
+```bash
+sudo kubeadm join 192.168.1.191:6443 --token <token> --discovery-token-ca-cert-hash sha256:<hash>
+```
+
+Important: `kubeadm init` is executed once, on the master node only. The workers do not run it. They join using the command that the master prints after initialization.
 
 Optional: Reboot all VMs:
 
@@ -347,7 +393,7 @@ Now SSH to each VM separately and run the following command on the master node o
 sudo kubeadm init --pod-network-cidr=10.244.0.0/16
 ```
 
-Do not change this IP prefix unless you have a reason to; it has nothing to do with your static DHCP scope on the router. The only requirement is that it cannot be the same as the one configured on the router.
+Do not change this IP prefix unless you have a reason to; it has nothing to do with your static DHCP scope on the router. The only requirement is that it cannot be the same as the one configured [...]
 
 It also needs to match the CNI component we install shortly. Since we are going to use Flannel, an extremely popular and simple CNI, it is easiest to leave it as `10.244.0.0/16`.
 
@@ -369,7 +415,7 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
 ## Install the CNI
 
-We need to install a Container Network Interface (CNI) so the cluster can create an overlay network for communication between pods. If CNI is configured incorrectly, you will see all your nodes in `Not Ready` status.
+We need to install a Container Network Interface (CNI) so the cluster can create an overlay network for communication between pods. If CNI is configured incorrectly, you will see all your nodes i[...]
 
 The most popular CNI choices are Flannel and Calico. We will use Flannel.
 
