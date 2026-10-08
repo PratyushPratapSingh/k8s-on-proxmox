@@ -112,6 +112,24 @@ qm create 191 \
 
 Use the output of your config file or go through the manual process of VM creation. Either is fine.
 
+## Quick node setup map
+
+Before you run any Kubernetes commands, remember this simple rule:
+
+- Run on all VMs: system updates, networking setup, containerd, kubelet/kubeadm/kubectl installation
+- Run on the master node only: `kubeadm init`, `kubectl` config, CNI installation
+- Run on each worker node only: `kubeadm join` using the master-generated token
+
+In other words:
+
+```text
+All VMs -> prepare the OS and install Kubernetes packages
+Master  -> initialize cluster and install CNI
+Workers -> join the cluster
+```
+
+This is the most important distinction in this guide. The master does not need the worker join command, and the workers do not run `kubeadm init`.
+
 ## Initial VM setup
 
 Now start each VM and configure the hostname and static IP address.
