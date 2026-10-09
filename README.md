@@ -134,7 +134,7 @@ This is the most important distinction in this guide. The master does not need t
 
 Now start each VM and configure the hostname and static IP address.
 
-If you wonder whether we could use cloud images or templates, yes, we could. Or we could set up one instance and clone it. But those solutions are more confusing, and for 3 VMs they are not even [..] 
+If you wonder whether we could use cloud images or templates, yes, we could. Or we could set up one instance and clone it. But those solutions are more confusing, and for 3 VMs they are not even [..]
 
 For cloned images, you would need to remove machine IDs, re-provision SSH keys, and more. Installing each instance might not look like the most efficient approach, but it really doesn't take long[...]
 
@@ -402,6 +402,108 @@ sudo apt-mark hold kubelet kubeadm kubectl
 A good rule is: install them once, keep the versions matched, and only upgrade them deliberately as a set.
 
 > **Troubleshooting**: If you encounter errors fetching from `pkgs.k8s.io` (403 Forbidden, connection issues, or missing release file), see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for alternative installation methods.
+
+## What is `--pod-network-cidr` and why is it important?
+
+`--pod-network-cidr` defines the IP address range that Kubernetes pods use to communicate with each other inside the cluster.
+
+It is different from your home network (for example `192.168.1.0/24`), because Kubernetes creates a separate virtual pod network. This internal network must not overlap with the real network used by your hosts or your router.
+
+Example:
+
+```bash
+sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+```
+
+This tells Kubernetes to assign pod IPs from the `10.244.0.0/16` range, such as:
+
+- `10.244.0.2`
+- `10.244.1.10`
+- `10.244.2.25`
+
+That range is separate from your LAN, so it does not conflict with devices like your router or Proxmox host.
+
+### Why Flannel uses `10.244.0.0/16`
+
+Flannel is the Container Network Interface (CNI) plugin we will install. Flannel is responsible for creating pod-to-pod connectivity in the cluster.
+
+Flannel expects the pod CIDR to match the network it is configured to use. In this guide, we use the default Flannel network:
+
+```bash
+--pod-network-cidr=10.244.0.0/16
+```
+
+This is the simplest and most common option for a home lab Kubernetes cluster.
+
+In short:
+- `--pod-network-cidr` = the pod network range
+- Flannel = the software that creates and manages that pod network
+- `10.244.0.0/16` = the default network used by Flannel
+
+If you change the pod network range, you must make sure the CNI plugin uses the same range or things will break.
+
+## What is Flannel and why do we need it?
+
+Flannel is a Kubernetes networking plugin that assigns IP addresses to Pods and routes traffic between them.
+
+Without Flannel, Pods would not be able to talk to one another across nodes. The cluster could be initialized, but networking would not work correctly.
+
+Typical installation:
+
+```bash
+kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+```
+
+Flannel creates the pod overlay network so that pods on the master and worker nodes can communicate as if they were part of one large private network.
+
+## How do I know whether the master node is complete?
+
+After you run `kubeadm init`, the master node is considered initialized when the control-plane pods are running and the API server is responding.
+
+Check the status with:
+
+```bash
+sudo systemctl status kubelet
+kubectl get nodes
+kubectl cluster-info
+kubectl get pods -n kube-system
+kubectl get pods -n kube-flannel
+```
+
+You want to see:
+
+- `kubelet` is `active (running)`
+- `kubectl get nodes` shows the master node in `Ready` state
+- `kubectl cluster-info` shows the Kubernetes API server and CoreDNS
+- `kubectl get pods -n kube-system` shows all control-plane pods in `Running` state
+- `kubectl get pods -n kube-flannel` shows Flannel pods in `Running` state
+
+Example result:
+
+```bash
+kubectl get nodes
+```
+
+```text
+NAME          STATUS   ROLES           AGE   VERSION
+k8s-master    Ready    control-plane   5m    v1.32.0
+```
+
+If `kubelet` is inactive, it usually means the cluster has not been initialized yet. In that case, run:
+
+```bash
+sudo kubeadm init --pod-network-cidr=10.244.0.0/16
+```
+
+Then create the kube config:
+
+```bash
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+
+After the cluster is initialized, Flannel should be installed and network communication should begin.
 
 ## Initialize the cluster
 
