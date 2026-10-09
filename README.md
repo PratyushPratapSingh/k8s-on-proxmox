@@ -332,6 +332,41 @@ Add the repository:
 echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 ```
 
+> Important: if you see errors like `Failed to fetch https://pkgs.k8s.io/... 403 Forbidden` or the output shows an IPv6 address like `2600:9000:...` on port `443`, the issue is usually IPv6 connectivity, not the package repository itself. The IP `2600:9000:...` is an IPv6 address, and when IPv6 is broken or blocked in your home network, the connection to the external service can fail. In that case, force IPv4 for APT:
+>
+> ```bash
+> sudo apt -o Acquire::ForceIPv4=true update
+> sudo apt -o Acquire::ForceIPv4=true install -y apt-transport-https ca-certificates curl gpg
+> ```
+>
+> Then retry the Kubernetes repository setup with IPv4 forced:
+>
+> ```bash
+> curl -fsSL --ipv4 https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+> echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+> sudo apt -o Acquire::ForceIPv4=true update
+> ```
+>
+> If your network does not support IPv6, you can also disable IPv6 on the VM temporarily or permanently:
+>
+> ```bash
+> sudo nano /etc/sysctl.d/99-disable-ipv6.conf
+> ```
+>
+> Add:
+>
+> ```bash
+> net.ipv6.conf.all.disable_ipv6 = 1
+> net.ipv6.conf.default.disable_ipv6 = 1
+> net.ipv6.conf.lo.disable_ipv6 = 1
+> ```
+>
+> Then apply:
+>
+> ```bash
+> sudo sysctl -p /etc/sysctl.d/99-disable-ipv6.conf
+> ```
+
 Install the Kubernetes components:
 
 ```bash
@@ -345,7 +380,26 @@ sudo apt-mark hold kubelet kubeadm kubectl
 - `kubeadm` = installer
 - `kubectl` = remote control
 
-The `hold` command locks the current version of these components. This is advisable because otherwise a standard `apt update && apt upgrade` could accidentally update them to a version incompatible with your cluster.
+The `apt-mark hold` command locks the package versions so APT will not upgrade them automatically. This is important because Kubernetes components must usually stay aligned with the same version. If you run a normal `apt update && apt upgrade`, APT may upgrade one package but not the others, which can cause cluster incompatibilities or `kubeadm` errors.
+
+Example:
+
+```bash
+# lock those versions
+sudo apt-mark hold kubelet kubeadm kubectl
+
+# later, if you want to allow upgrades again
+sudo apt-mark unhold kubelet kubeadm kubectl
+
+# then update them together deliberately
+sudo apt update
+sudo apt install kubelet kubeadm kubectl
+
+# and lock them again for stability
+sudo apt-mark hold kubelet kubeadm kubectl
+```
+
+A good rule is: install them once, keep the versions matched, and only upgrade them deliberately as a set.
 
 > **Troubleshooting**: If you encounter errors fetching from `pkgs.k8s.io` (403 Forbidden, connection issues, or missing release file), see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for alternative installation methods.
 
