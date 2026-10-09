@@ -134,7 +134,7 @@ This is the most important distinction in this guide. The master does not need t
 
 Now start each VM and configure the hostname and static IP address.
 
-If you wonder whether we could use cloud images or templates, yes, we could. Or we could set up one instance and clone it. But those solutions are more confusing, and for 3 VMs they are not even [...]
+If you wonder whether we could use cloud images or templates, yes, we could. Or we could set up one instance and clone it. But those solutions are more confusing, and for 3 VMs they are not even [..] 
 
 For cloned images, you would need to remove machine IDs, re-provision SSH keys, and more. Installing each instance might not look like the most efficient approach, but it really doesn't take long[...]
 
@@ -313,23 +313,22 @@ You should see that the containerd service is both active and enabled (enabled m
 
 ## Install Kubernetes components
 
-Install `curl`, `gpg`, and add the Kubernetes repository:
+Install `curl`, `gpg`, and add the Kubernetes repository.
+
+> Note: In some home-lab or firewall setups, `pkgs.k8s.io` can fail with a 403 or be blocked. If that happens, use the legacy `apt.kubernetes.io` repository instead.
 
 ```bash
 sudo apt update && sudo apt install -y apt-transport-https ca-certificates curl gpg
-```
 
-Download the public signing key:
-
-```bash
 sudo mkdir -p -m 755 /etc/apt/keyrings
+
+# Preferred official repo when available:
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-```
+# echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 
-Add the repository:
-
-```bash
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+# Fallback repo for blocked or restricted networks:
+curl -fsSL https://dl.k8s.io/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 ```
 
 Install the Kubernetes components:
@@ -345,7 +344,7 @@ sudo apt-mark hold kubelet kubeadm kubectl
 - `kubeadm` = installer
 - `kubectl` = remote control
 
-The `hold` command locks the current version of these components. This is advisable because otherwise a standard `apt update && apt upgrade` could accidentally update them to a version incompatib[...]
+The `hold` command locks the current version of these components. This is advisable because otherwise a standard `apt update && apt upgrade` could accidentally update them to a version incompatible with your cluster.
 
 ## Initialize the cluster
 
@@ -370,8 +369,8 @@ sudo systemctl restart containerd
 sudo systemctl enable containerd
 sudo apt update && sudo apt install -y apt-transport-https ca-certificates curl gpg
 sudo mkdir -p -m 755 /etc/apt/keyrings
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+curl -fsSL https://dl.k8s.io/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 sudo apt update
 sudo apt install -y kubelet kubeadm kubectl
 sudo apt-mark hold kubelet kubeadm kubectl
