@@ -313,22 +313,23 @@ You should see that the containerd service is both active and enabled (enabled m
 
 ## Install Kubernetes components
 
-Install `curl`, `gpg`, and add the Kubernetes repository.
-
-> Note: In some home-lab or firewall setups, `pkgs.k8s.io` can fail with a 403 or be blocked. If that happens, use the legacy `apt.kubernetes.io` repository instead.
+Install `curl`, `gpg`, and add the Kubernetes repository:
 
 ```bash
 sudo apt update && sudo apt install -y apt-transport-https ca-certificates curl gpg
+```
 
+Download the public signing key:
+
+```bash
 sudo mkdir -p -m 755 /etc/apt/keyrings
-
-# Preferred official repo when available:
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-# echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+```
 
-# Fallback repo for blocked or restricted networks:
-curl -fsSL https://dl.k8s.io/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+Add the repository:
+
+```bash
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 ```
 
 Install the Kubernetes components:
@@ -345,6 +346,8 @@ sudo apt-mark hold kubelet kubeadm kubectl
 - `kubectl` = remote control
 
 The `hold` command locks the current version of these components. This is advisable because otherwise a standard `apt update && apt upgrade` could accidentally update them to a version incompatible with your cluster.
+
+> **Troubleshooting**: If you encounter errors fetching from `pkgs.k8s.io` (403 Forbidden, connection issues, or missing release file), see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for alternative installation methods.
 
 ## Initialize the cluster
 
@@ -369,8 +372,8 @@ sudo systemctl restart containerd
 sudo systemctl enable containerd
 sudo apt update && sudo apt install -y apt-transport-https ca-certificates curl gpg
 sudo mkdir -p -m 755 /etc/apt/keyrings
-curl -fsSL https://dl.k8s.io/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.32/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 sudo apt update
 sudo apt install -y kubelet kubeadm kubectl
 sudo apt-mark hold kubelet kubeadm kubectl
