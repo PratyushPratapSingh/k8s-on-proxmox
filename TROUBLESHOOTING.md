@@ -41,29 +41,35 @@ sudo apt install -y kubelet kubeadm kubectl
 sudo apt-mark hold kubelet kubeadm kubectl
 ```
 
-### Solution 2: Use an Alternative Repository (Recommended)
+### Solution 2: Use Ubuntu's Official Kubernetes Packages (Recommended for Home Labs)
 
-If `pkgs.k8s.io` continues to fail, use the Google Cloud Debian repository instead:
+Ubuntu includes Kubernetes packages in its official repositories. This is the most stable approach for home-lab environments:
 
 ```bash
-sudo apt update && sudo apt install -y apt-transport-https ca-certificates curl gpg
-
-# Add Google Cloud public key
-sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys BA07F4FB
-
-# Add the Google Cloud Kubernetes repository
-echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | \
-  sudo tee /etc/apt/sources.list.d/kubernetes.list
-
-# Update and install
 sudo apt update
 sudo apt install -y kubelet kubeadm kubectl
 sudo apt-mark hold kubelet kubeadm kubectl
 ```
 
-### Solution 3: Downgrade Kubernetes Version
+This installs versions maintained by Ubuntu. Check what version is available:
 
-If you're experiencing persistent issues with v1.32, try a slightly older version:
+```bash
+apt search kubeadm | grep "^kubeadm/"
+```
+
+### Solution 3: Install from Snap (Alternative)
+
+If APT repositories fail entirely, you can use Snap:
+
+```bash
+sudo snap install kubectl --classic
+sudo snap install kubeadm --classic
+sudo snap install kubelet --classic
+```
+
+### Solution 4: Downgrade Kubernetes Version
+
+If you're experiencing persistent issues with v1.32, try a slightly older version by specifying the version:
 
 ```bash
 sudo apt update && sudo apt install -y apt-transport-https ca-certificates curl gpg
@@ -82,18 +88,25 @@ sudo apt install -y kubelet kubeadm kubectl
 sudo apt-mark hold kubelet kubeadm kubectl
 ```
 
-### Solution 4: Manual Installation with Specific Package Versions
+### Solution 5: Manual Binary Installation
+
+Download Kubernetes binaries directly:
 
 ```bash
-sudo apt update && sudo apt install -y apt-transport-https ca-certificates curl gpg
+K8S_VERSION="v1.32.0"  # Change as needed
 
-# Install from Ubuntu's official repository (usually slightly older versions)
-sudo apt install -y kubelet kubeadm kubectl
+# Create directory
+mkdir -p ~/k8s-bins
+cd ~/k8s-bins
 
-# Or specify exact versions if available
-sudo apt install -y kubelet=1.32.* kubeadm=1.32.* kubectl=1.32.*
+# Download the binaries
+curl -L https://dl.k8s.io/${K8S_VERSION}/bin/linux/amd64/kubectl -o kubectl
+curl -L https://dl.k8s.io/${K8S_VERSION}/bin/linux/amd64/kubelet -o kubelet
+curl -L https://dl.k8s.io/${K8S_VERSION}/bin/linux/amd64/kubeadm -o kubeadm
 
-sudo apt-mark hold kubelet kubeadm kubectl
+# Make executable and move to PATH
+chmod +x kubectl kubelet kubeadm
+sudo mv kubectl kubelet kubeadm /usr/local/bin/
 ```
 
 ## Network/Proxy Issues
@@ -135,10 +148,11 @@ cat /etc/apt/sources.list.d/kubernetes.list
 
 ## Summary of Solutions (In Order of Preference)
 
-1. **Retry with network troubleshooting** - Might be a temporary issue
-2. **Use Google Cloud repository** - Most reliable alternative
-3. **Downgrade to v1.31** - If specific version is problematic
-4. **Use Ubuntu's repository** - Slightly older but very stable
-5. **Check network/proxy** - If behind corporate firewall
+1. **Use Ubuntu's official repository** - Most stable for home labs, no version-specific URLs
+2. **Retry with network troubleshooting** - Might be a temporary issue with pkgs.k8s.io
+3. **Use Snap packages** - When APT completely fails
+4. **Downgrade to v1.31** - If specific v1.32 version is problematic
+5. **Download binaries directly** - Last resort, manual installation
+6. **Check network/proxy** - If behind corporate firewall
 
 Choose the solution that best fits your network environment and version requirements.
